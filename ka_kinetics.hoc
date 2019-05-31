@@ -1,0 +1,138 @@
+create a
+a	{nseg=1 diam=20 L=20 
+	insert ka ek_ka=-77
+	insert pas g_pas=1/10000 Ra=150 cm=1}
+access a
+
+tstop=100
+vlow=-120
+vhigh=30
+dt=0.1
+celsius=22
+usetable_ka = 0
+
+frac=0
+color=1
+
+objref gk, b,gt,vc, gs,c, gf,ic
+b = new VBox()
+c = new VBox()
+b.intercept(1)
+gk = new Graph(0)
+gk.view(vlow,0,vhigh-vlow,1,0,0,100,200)
+gk.exec_menu("New Axis")
+gk.exec_menu("10% Zoom out")
+gk.label(0.1,0.9,"ka: steady-state activation (a, b, c)")
+gk.addexpr("ainf_ka",1,2, 2*tstop,0,2)
+gk.addexpr("binf_ka",2,2, 2*tstop,0,2)
+gk.addexpr("cinf_ka",3,2, 2*tstop,0,2)
+// NOTE: b and c have the same voltage dependence, just different kinetics.
+
+gt = new Graph(0)
+gt.view(vlow,0,vhigh-vlow,30,0,0,100,200)
+gt.exec_menu("New Axis")
+gt.exec_menu("10% Zoom out")
+gt.label(0.1,0.9,"ka: a, b, c(*0.1) time constants")
+gt.addexpr("atau_ka",1,2, 2*tstop,0,2)
+gt.addexpr("btau_ka",2,2, 2*tstop,0,2)
+gt.addexpr("ctau_ka*0.1",3,2, 2*tstop,0,2)
+
+gs = new Graph(0)
+gs.view(0,-70,150,50,0,0,100,200)
+gs.exec_menu("New Axis")
+gs.exec_menu("10% Zoom out")
+gs.label(0.1,0.9,"+0.1 nA current injection")
+gs.exec_menu("Keep Lines")
+
+xpanel("")
+xbutton("run ", "run()")
+xvalue("color","color",1)
+xpanel()
+b.intercept(0)
+b.map("IKa Kinetics (Rothman and Manis, 2003c)",100,0,200,600)
+
+c.intercept(1)
+gf = new Graph(0)
+gf.view(0,-2,150,17,0,0,100,100)
+gf.exec_menu("New Axis")
+gf.exec_menu("10% Zoom out")
+gf.label(0.4,0.95,"ka current (nA)")
+gf.label(0.3,0.08,"-120mV ")
+gf.label(0.3,0.85,"+30mV ")
+gf.label(0.8, 0.85, "-10mV")
+gf.exec_menu("Keep Lines")
+c.intercept(0)
+c.map("IKa Voltage Clamp Currents",390,0,500,370)
+
+vc = new SEClamp(0.5)
+ic = new IClamp(0.5)
+
+proc run() {
+gk.begin()
+for (v=vlow; v<vhigh; v=v+1) {
+    trates_ka(v)
+    gk.plot(v)
+}
+
+gk.flush()
+doNotify()
+
+
+gt.begin()
+gt.color(2)
+for (v=vlow; v<vhigh; v=v+1) {
+    trates_ka(v)
+    gt.plot(v)
+}
+
+gt.flush()
+doNotify()
+
+gkabar_ka= 0.00477
+
+gs.addexpr("a.v(0.1)",color,1, 2*tstop,0,2)
+gf.addexpr("ik_ka*area(0.5)*1e-2",color,1, 2*tstop,0,2) // *10=pA, *1e-2=nA
+
+gs.begin()
+ic.del=5
+ic.dur=100
+ic.amp=0.10
+v=-62
+finitialize(v)
+fcurrent()
+e_pas=v+(ik_ka)/g_pas
+t=0
+while (t<tstop*1.5) {
+    fadvance()
+    gs.plot(t)
+    }
+gs.flush()
+doNotify()
+ic.amp=0
+
+gkabar_ka=0.01592
+k=30
+while (k>=-100) {
+	t=0
+	vc.amp1=-62
+	vc.dur1=5
+	vc.amp2=k
+	vc.dur2=ic.dur
+	vc.amp3=-10
+	vc.dur3=50
+	forall {finitialize(-62)}
+	fcurrent()
+	while (t<tstop*1.5) {
+    	fadvance()
+    	gf.plot(t)
+	}
+	gf.flush()
+	doNotify()
+	k=k-10
+	gf.begin()
+}
+vc.dur1=0
+vc.dur2=0
+vc.dur3=0
+}
+

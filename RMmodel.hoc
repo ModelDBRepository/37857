@@ -1,0 +1,425 @@
+// Implementation of Rothman and Manis (2003a,b,c) VCN potassium channel
+// models based on measured kinetics.
+// This HOC file generates current clamp responses for 100 msec steps for each
+// of the cell classes Type I-c (classic), Type I-t (transient), Type I-II, Type II-I
+// and Type II, using the conductance levels listed in Table I of the third paper. 
+// Requires individual mod files for ilt, ih, iht, ia, and ina, plus a leak channel.
+// 
+// 1 April 2004 for NEURON version 5.5
+// Paul B. Manis
+// pmanis@med.unc.edu
+// 
+// 2 April 2004.
+// Added TypeII-o. This is an "octopus" cell model, assuming that the largest
+// low-threshold conductance measurements in Figure 4 may have come from
+// such cells, and based on data from Oertel's lab. The octopus cells are more
+// than extreme bushy cells, but this is a starting point.
+// Included Milgore's hcno octopus cell iH current model, just for the type II-o
+// (octopus) cell model.
+
+objref ic, icur
+icur = new Vector (50, 100)
+ncur = 2 // normal number of current steps
+variable_domain(&ncur, 1, 50)
+
+speccm = 0.9
+totcap =12 // total cap in pF for cell 
+somaarea = totcap *1E-6 / 1 // pf -> uF,assumes 1 uF/cm2; result is in cm2 
+lstd = 1E4*sqrt(somaarea/PI) // convert from cm to um 
+
+create a
+a	{nseg=1 diam=lstd L=lstd 
+	insert klt ek_lt = -70
+	insert kht ek_kht = -70
+	insert na ena_na = 50
+	insert ka ek_ka=-70
+	insert ih eh_ih=-43
+	insert hcno eh_hcno = -43 gbar_hcno = 0
+	insert leak g_leak=1/10000 erev_leak = -65
+	Ra=150 cm=1}
+access a
+cm = speccm // change this here - minor difference.
+
+ic = new IClamp(0.5)
+
+objref w, gc, gp  // window, run control and plot window
+celsius=22         // base model temperature - temp at which measurements were made
+usetable_klt = 0
+usetable_na = 0
+usetable_kht = 0
+usetable_ka = 0
+usetable_ih = 0
+usetable_hcno = 0
+
+color=1
+model = 1
+strdef modelname
+
+imax = 250
+
+// convert from nanosiemens to mho/cm2.
+func nstomho() {
+	return (1E-9*$1/somaarea)
+}
+
+//----------------------------------------------
+// Specify cell types by setting the magnitudes of the conductances
+// Conductance levels are taken from Table 1 of Rothman and Manis,
+// 2003c
+//----------------------------------------------
+
+proc set_Type1c() {
+	gnabar_na = nstomho(1000)
+	gkhtbar_kht = nstomho(150)
+	gkltbar_klt = nstomho(0)
+	gkabar_ka = nstomho(0)
+	ghbar_ih = nstomho(0.5)
+	gbar_hcno = nstomho(0)
+	g_leak = nstomho(2)
+	vm0 = -63.9
+	model = 1
+}
+
+proc set_Type1t() {
+	gnabar_na = nstomho(1000)
+	gkhtbar_kht = nstomho(80)
+	gkltbar_klt = nstomho(0)
+	gkabar_ka = nstomho(65)
+	ghbar_ih = nstomho(0.5)
+	gbar_hcno = 0
+	g_leak = nstomho(2)
+	vm0 = -64.2
+	model = 2
+}
+
+proc set_Type12() {
+	gnabar_na = nstomho(1000)
+	gkhtbar_kht = nstomho(150)
+	gkltbar_klt = nstomho(20)
+	gkabar_ka = nstomho(0)
+	ghbar_ih = nstomho(2)
+	gbar_hcno = 0
+	g_leak = nstomho(2)
+	vm0 = -64.1
+	model = 3
+}
+
+proc set_Type21() {
+	gnabar_na = nstomho(1000)
+	gkhtbar_kht = nstomho(150)
+	gkltbar_klt = nstomho(35)
+	gkabar_ka = nstomho(0)
+	ghbar_ih = nstomho(3.5)
+	gbar_hcno = 0
+	g_leak = nstomho(2)
+	vm0 = -63.8
+	model = 4
+}
+
+proc set_Type2() {
+	gnabar_na = nstomho(1000)
+	gkhtbar_kht = nstomho(150)
+	gkltbar_klt = nstomho(200)
+	gkabar_ka = nstomho(0)
+	ghbar_ih = nstomho(20)
+	gbar_hcno = 0
+	g_leak = nstomho(2)
+	vm0 = -63.6
+	model = 5
+}
+
+// including the "Octopus" cell:
+proc set_Type2o() {
+	gnabar_na = nstomho(1000)
+	gkhtbar_kht = nstomho(150)
+	gkltbar_klt = nstomho(600)
+	gkabar_ka = nstomho(0)
+	ghbar_ih = nstomho(0)
+	gbar_hcno = nstomho(40)
+	g_leak = nstomho(2)
+	model = 6
+	modelname = "Type IIo (Octopus)"
+	vm0 = -66.67
+}
+
+
+//----------------------------------------------------------
+// Recreate Figures - each routine calculates a single panel in a figure
+//----------------------------------------------------------
+proc Fig2A(){
+	set_Type1c()
+	ncur = 2
+	icur.x[0] = 50
+	icur.x[1] = -50
+	modelname = "Type I-c: Figure2A"
+	reGraph("A. Type I-c Model, +/- 50 pA")
+}
+
+proc Fig2B() {
+	set_Type1t()
+	ncur = 2
+	icur.x[0] = 50
+	icur.x[1] = -50
+	modelname = "Type I-t: Figure 2B"
+	reGraph("B. Type I-t Model, +/- 50 pA")
+}
+
+proc Fig2C() {
+	set_Type2()
+	ncor = 2
+	icur.x[0] = 300
+	icur.x[1] = -300
+	reGraph("C. Type II Model, +/- 300 pA")
+	modelname = "Type II: Figure2C"
+}
+
+proc Fig2D(){
+	set_Type12()
+	ncur = 2
+	icur.x[0] = 100
+	icur.x[1] = -100
+	modelname = "Type I-II: Figure2D"
+	reGraph("D. Type I-II Model, +/- 100 pA")
+}
+
+
+
+proc Fig3A() {
+	set_Type2()
+	modelname="Type II: Fig3A"
+	ncur = 2
+	icur.x[0] = 300
+	icur.x[1] = -300
+	reGraph("Fig3A. Type II, standard")
+}
+
+proc Fig3B() {
+	set_Type2()
+	ghbar_ih = nstomho(0)
+	ncur = 2
+	icur.x[0] = 300
+	icur.x[1] = -300
+	modelname="Type II: Fig3B"
+	reGraph("Fig3B. Type II, Ih = 0")
+}
+
+proc Fig3C() {
+	set_Type2()
+	gkhtbar_kht = nstomho(0)
+	ncur = 2
+	icur.x[0] = 300
+	icur.x[1] = -300
+	reGraph("Fig3C. Type II, IHT=0 (no high threshold)")
+	modelname="Type II: Fig3C"
+}
+
+proc Fig3D() {
+	set_Type2()
+	gkltbar_klt =nstomho(0)
+	ncur = 2
+	icur.x[0] = 150
+	icur.x[1] = -300
+	reGraph("Fig3D. Type II, ILT=0 (no low threshold)")
+	modelname="Type II: Fig3D"
+}
+
+proc Fig4A() {
+	set_Type2()
+	ncur = 3
+	icur.x[0] = 300
+	icur.x[1] = 500
+	icur.x[2] = 700
+	reGraph("Fig4. Inset, Type II")
+	modelname="Type II: Fig4A"
+}
+
+proc Fig4C() {
+	set_Type21()
+	ncur = 3
+	icur.x[0] = 100
+	icur.x[1] = 300
+	icur.x[2] = 550
+	reGraph("Fig4. Inset, Type II-I")
+	modelname="Type II-I: Fig4C"
+}
+
+proc Fig4B() {
+	set_Type12()
+	ncur = 3
+	icur.x[0] = 90
+	icur.x[1] = 120
+	icur.x[2] = 150
+	reGraph("Fig4. Inset, Type I-II")
+	modelname="Type I-II: Fig4B"
+}
+
+proc Fig4D() {
+	set_Type1c()
+	ncur = 3
+	icur.x[0] = 50
+	icur.x[1] = 100
+	icur.x[2] = 150
+	reGraph("Fig4. Inset, Type I-c")
+	modelname="Type I: Fig4D"
+}
+
+// clear the graph and put up a new one with a new label
+
+proc reGraph() {
+	w.intercept(1)
+	gp.erase_all()
+	gp.yaxis(0)
+	gp.size(0, 150, -140, 60)
+	gp.label(0.2,0.95,$s1)
+	w.intercept(0)
+}
+
+//------------------------------------
+// General Model Selection
+// --- access to full IVs
+//------------------------------------
+
+proc Type1c() {
+	set_Type1c()
+	ncur = 11
+	imax = 150
+	reGraph("Current Clamp IV, Type I-c")
+	modelname = "Type I-c"
+	model = 0
+}
+proc Type1t() {
+	set_Type1t()
+	ncur = 11
+	imax = 150
+	reGraph("Current Clamp IV, Type I-t")
+	modelname = "Type I-t"
+	model = 0
+}
+proc Type12() {
+	set_Type12()
+	ncur = 11
+	imax = 250
+	reGraph("Current Clamp IV, Type I-II")
+	modelname = "Type I-II"
+	model = 0
+}
+proc Type21() {
+	set_Type21()
+	ncur = 11
+	imax = 350
+	reGraph("Current Clamp IV, Type II-I")
+	modelname = "Type II-I"
+	model = 0
+}
+proc Type2() {
+	set_Type2()
+	ncur = 11
+	imax = 1000
+	modelname = "Type II"
+	reGraph("Current Clamp IV, Type II")
+	model = 0
+}
+proc Type2o() {
+	set_Type2o()
+	ncur = 11
+	imax = 2000
+	modelname = "Type IIo (Octopus)"
+	reGraph("Current Clamp IV, Type 2-o (Octopus)")
+	model = 0
+}
+
+//-----------------------------------------------------------
+// The main run procedure. Handle IVs as well as pre-specified
+// current levels
+//
+
+proc run() {
+// if model type is 0, then we need to set the currents for an IV
+	if(model == 0) {
+		for i = 0,ncur-1 {
+			icur.x[i] = -imax+(i*(2*imax)/(ncur-1))
+		}
+	}
+	tstop = 100
+	gp.addexpr("a.v(0.5)",color,1, 2*tstop,0,2)
+	gp.begin()
+	for i = 0,ncur-1 {
+		ic.del=5
+		ic.dur=100
+		ic.amp=icur.x[i]/1000
+		erev_leak = -65
+		v=vm0
+		finitialize(v)
+		fcurrent()
+		t=0
+		while (t<tstop*1.5) { // go past end of pulses
+		    fadvance()
+		    gp.plot(t)
+		    }
+		gp.flush()
+		doNotify()
+		ic.amp=0
+		gp.begin()
+	}
+}
+
+//---------------------------------------------------------
+// Build the window, the menu and the graph
+//---------------------------------------------------------
+
+w = new HBox()
+w.intercept(1)
+xpanel("")
+xvarlabel(modelname)
+xmenu("Figure2")
+	xbutton("Figure2A", "Fig2A()")
+	xbutton("Figure2B", "Fig2B()")
+	xbutton("Figure2C", "Fig2C()")
+	xbutton("Figure2D", "Fig2D()")
+xmenu()
+
+xmenu("Figure3")
+	xbutton("Panel A", "Fig3A()")
+	xbutton("Panel B", "Fig3B()")
+	xbutton("Panel C", "Fig3C()")
+	xbutton("Panel D", "Fig3D()")
+xmenu()
+
+xmenu("Figure4")
+	xbutton("Type I",    "Fig4A()")
+	xbutton("Type I-II", "Fig4B()")
+	xbutton("Type II-I", "Fig4C()")
+	xbutton("Type II",    "Fig4D()")
+xmenu()
+
+xmenu("Full IV Model Selection")
+	xbutton("Type I-c", "Type1c()")
+	xbutton("Type I-t", "Type1t()")
+	xbutton("Type I-II", "Type12()")
+	xbutton("Type II-I", "Type21()")
+	xbutton("Type II", "Type2()")
+	xbutton("Type IIo (Octopus)", "Type2o()")
+xmenu()
+
+xbutton("Run  ", "run()")
+	
+xvalue("Color","color",1)
+xvalue("IV max (pA)", "imax", 250)
+xvalue("# IV steps", "ncur", 10)
+xbutton("Erase", "gp.erase()")
+
+xpanel()
+
+gp = new Graph(0)
+gp.view(0,-150,170,200,100,0,200,250)
+gp.size(0, 150, -140, 60)
+gp.exec_menu("New Axis")
+gp.exec_menu("10% Zoom out")
+gtitle = gp.label(0.2,0.95,"Current Clamp")
+gp.exec_menu("Keep Lines")
+
+w.intercept(0)
+
+w.map("Rothman and Manis, 2003c",400,000,600,400)
+Type1c() // set default model to type 1c
+ek = -70
